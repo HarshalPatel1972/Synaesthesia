@@ -1,72 +1,91 @@
-import { RenderFn } from "@/types/visualizer";
+import { AudioData, RenderFn } from "@/types/visualizer";
 
-export const renderPrism: RenderFn = (ctx, width, height, audio, time, frame) => {
-  const { bass, mid, treble, amplitude } = audio;
-  const centerX = width / 2;
-  const centerY = height / 2;
+export const renderPrism: RenderFn = (
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  audio: AudioData,
+  time: number
+) => {
+  ctx.fillStyle = "rgba(0, 0, 5, 0.2)";
+  ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = "#000005";
-  ctx.fillRect(0, 0, width, height);
+  const cx = W / 2;
+  const cy = H / 2;
+  const SYMMETRY = 8; // 8-fold mirror
+  const sliceAngle = (Math.PI * 2) / SYMMETRY;
 
-  const sides = 6;
-  const radius = 150 + amplitude * 100;
-  const rotation = time * 0.0005 + mid * 2;
+  // Base radius driven by amplitude
+  const baseR = Math.min(W, H) * 0.12 * (1 + audio.amplitude * 2);
 
-  // Draw 8-fold symmetry
-  for (let i = 0; i < 8; i++) {
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Draw SYMMETRY mirrored slices
+  for (let s = 0; s < SYMMETRY; s++) {
     ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.rotate((i * Math.PI) / 4);
+    ctx.rotate(s * sliceAngle + time * 0.0003 * (1 + audio.mid * 3));
 
-    // Fractal geometry
-    drawShape(ctx, 0, 0, radius, sides, rotation, audio);
-    
+    // Draw frequency-responsive radial lines
+    const binCount = 60;
+    for (let i = 0; i < binCount; i++) {
+      const binVal = audio.frequencyData[i * 8] / 255;
+      const angle = (i / binCount) * sliceAngle;
+      const r1 = baseR;
+      const r2 = baseR + binVal * (Math.min(W, H) * 0.3) * (1 + audio.bass * 1.5);
+
+      const hue = 260 + (i / binCount) * 120 + audio.mid * 60;
+      const alpha = 0.4 + binVal * 0.5;
+
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * r1, Math.sin(angle) * r1);
+      ctx.lineTo(Math.cos(angle) * r2, Math.sin(angle) * r2);
+      ctx.strokeStyle = `hsla(${hue}, 90%, 70%, ${alpha})`;
+      ctx.lineWidth = 1 + binVal * 2;
+      ctx.stroke();
+    }
+
+    // Bass: outer polygon ring
+    const sides = 6 + Math.floor(audio.bass * 6);
+    const outerR = baseR + Math.min(W, H) * 0.2 * (1 + audio.bass);
+    ctx.beginPath();
+    for (let v = 0; v <= sides; v++) {
+      const a = (v / sides) * Math.PI * 2;
+      const r = outerR * (1 + 0.2 * Math.sin(time * 0.002 + v));
+      if (v === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.strokeStyle = `hsla(${280 + audio.bass * 60}, 100%, 80%, ${0.3 + audio.bass * 0.5})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
     ctx.restore();
   }
 
+  // Center orb
+  const orbRadius = baseR * 0.4;
+  const orbGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, orbRadius);
+  orbGrad.addColorStop(0, `hsla(${270 + audio.mid * 60}, 100%, 90%, 0.9)`);
+  orbGrad.addColorStop(1, `hsla(${270 + audio.mid * 60}, 100%, 50%, 0)`);
+  ctx.beginPath();
+  ctx.arc(0, 0, orbRadius, 0, Math.PI * 2);
+  ctx.fillStyle = orbGrad;
+  ctx.fill();
+
+  ctx.restore();
+
   // Chromatic aberration on bass spike
-  if (bass > 0.8) {
+  if (audio.bass > 0.65) {
+    const offset = (audio.bass - 0.65) * 20;
     ctx.save();
     ctx.globalCompositeOperation = "screen";
-    ctx.translate(Math.random() * 10 - 5, Math.random() * 10 - 5);
-    drawShape(ctx, centerX, centerY, radius, sides, rotation, audio, "#FF2975");
+    ctx.globalAlpha = 0.15;
+    ctx.translate(-offset, 0);
+    ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.translate(offset * 2, 0);
+    ctx.fillStyle = "rgba(0, 0, 255, 0.3)";
+    ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 };
-
-function drawShape(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  sides: number,
-  rotation: number,
-  audio: any,
-  overrideColor?: string
-) {
-  const { treble, amplitude } = audio;
-  
-  ctx.beginPath();
-  for (let i = 0; i <= sides; i++) {
-    const angle = (i * 2 * Math.PI) / sides + rotation;
-    const px = x + Math.cos(angle) * radius;
-    const py = y + Math.sin(angle) * radius;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-    
-    // Treble details
-    if (treble > 0.5) {
-      ctx.moveTo(px, py);
-      ctx.lineTo(x + Math.cos(angle) * (radius + 50), y + Math.sin(angle) * (radius + 50));
-    }
-  }
-  
-  ctx.strokeStyle = overrideColor || `hsla(260, 100%, 70%, ${0.5 + amplitude * 0.5})`;
-  ctx.lineWidth = 2 + amplitude * 5;
-  ctx.stroke();
-
-  // Recursive smaller shapes
-  if (radius > 50) {
-    drawShape(ctx, x, y, radius * 0.6, sides, -rotation * 1.5, audio, overrideColor);
-  }
-}
