@@ -12,7 +12,10 @@ interface YouTubePlayerProps {
 export const YouTubePlayer = forwardRef(({ videoId, onStateChange, onReady }: YouTubePlayerProps, ref) => {
   const { playerState, isReady, controls } = useYouTubePlayer(videoId);
 
-  useImperativeHandle(ref, () => controls);
+  useImperativeHandle(ref, () => ({
+    ...controls,
+    videoData: controls.videoData,
+  }));
 
   useEffect(() => {
     if (onStateChange) onStateChange(playerState);

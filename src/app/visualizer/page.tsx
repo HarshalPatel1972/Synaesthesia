@@ -133,6 +133,8 @@ function VisualizerContent() {
               onTogglePlay={handleTogglePlay}
               volume={volume}
               onVolumeChange={handleVolumeChange}
+              title={playerRef.current?.videoData?.title}
+              artist={playerRef.current?.videoData?.author}
             />
           </div>
         </div>
