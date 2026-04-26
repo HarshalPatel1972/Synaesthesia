@@ -21,15 +21,23 @@ function VisualizerContent() {
 
   const { getAudioData, connect: startCapture, isActive: isAudioActive } = useAudioAnalyser();
   const { activeMode, setMode } = useVisualizerMode();
-  const [showPermission, setShowPermission] = useState(true);
+  const [showPermission, setShowPermission] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(100);
 
   useEffect(() => {
     if (!videoId) {
       router.push("/");
+      return;
     }
-  }, [videoId, router]);
+    
+    // Show permission card after delay
+    const timer = setTimeout(() => {
+      if (!isAudioActive) setShowPermission(true);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [videoId, router, isAudioActive]);
 
   const handleTogglePlay = () => {
     if (isPlaying) {
@@ -63,35 +71,52 @@ function VisualizerContent() {
       <VisualizerCanvas activeMode={activeMode} getAudioData={getAudioData} />
 
       {/* Top Bar UI */}
-      <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-40">
+      <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-[60]">
         <Link 
           href="/" 
-          className="group flex items-center gap-3 text-text-secondary hover:text-white transition-all"
+          className="group flex items-center gap-4 text-text-secondary hover:text-white transition-all"
         >
-          <div className="w-8 h-8 rounded-full border border-border-glass flex items-center justify-center group-hover:border-neon-violet transition-colors">
-            <ArrowLeft className="w-4 h-4" />
+          <div className="w-10 h-10 rounded-full border border-border-glass flex items-center justify-center group-hover:border-neon-violet group-hover:shadow-[0_0_15px_rgba(123,47,255,0.3)] transition-all">
+            <ArrowLeft className="w-5 h-5" />
           </div>
-          <span className="font-display text-lg tracking-widest">SYNÆSTHESIA</span>
+          <div className="flex flex-col">
+            <span className="font-display text-xl tracking-[0.2em] leading-none">SYNÆSTHESIA</span>
+            <span className="font-ui text-[8px] uppercase tracking-[0.4em] opacity-50 mt-1">Bioluminescent Visualizer</span>
+          </div>
         </Link>
 
-        {!isAudioActive && !showPermission && (
-          <button
-            onClick={handleGrantPermission}
-            className="flex items-center gap-2 px-4 py-2 rounded-full border border-neon-violet/30 text-xs font-ui uppercase tracking-widest text-text-primary hover:bg-neon-violet/10 transition-all"
-          >
-            <Share2 className="w-3.5 h-3.5 text-neon-violet" />
-            Connect Audio
-          </button>
-        )}
+        {/* Connection Indicator */}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-void/40 backdrop-blur-md border border-border-glass">
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              isAudioActive ? "bg-cyan animate-pulse shadow-[0_0_8px_#00F5FF]" : "bg-white/20"
+            )} />
+            <span className="font-ui text-[9px] uppercase tracking-widest text-text-secondary">
+              {isAudioActive ? "Audio Connected" : "Ambient Mode"}
+            </span>
+          </div>
+          
+          {!isAudioActive && (
+            <button
+              onClick={() => setShowPermission(true)}
+              className="font-ui text-[8px] uppercase tracking-[0.3em] text-neon-violet hover:text-white transition-colors pr-2"
+            >
+              [ Reconnect Audio ]
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Permission Overlay */}
-      {showPermission && (
-        <AudioPermissionCard 
-          onGrant={handleGrantPermission} 
-          onSkip={() => setShowPermission(false)} 
-        />
-      )}
+      <AnimatePresence>
+        {showPermission && (
+          <AudioPermissionCard 
+            onGrant={handleGrantPermission} 
+            onSkip={() => setShowPermission(false)} 
+          />
+        )}
+      </AnimatePresence>
 
       {/* Bottom Control Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-40 p-6 md:p-8">
