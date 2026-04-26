@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   title: "SYNÆSTHESIA | If sound were visible, it would look like this.",
   description: "A cinematic, full-screen music visualizer. Experience your music in a bioluminescent void.",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

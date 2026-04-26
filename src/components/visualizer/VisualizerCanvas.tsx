@@ -43,9 +43,14 @@ export default function VisualizerCanvas({ activeMode, audioData }: VisualizerCa
     let animationId: number;
     let frame = 0;
     const startTime = performance.now();
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const loop = (currentTime: number) => {
       const elapsed = currentTime - startTime;
+      
+      if (prefersReducedMotion && frame % 2 !== 0) {
+        // Skip frames or reduce intensity logic could go here
+      }
       
       // We don't clear the whole canvas every time to allow for trails in some modes
       // The modes themselves handle background clearing if needed
