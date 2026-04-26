@@ -19,7 +19,7 @@ export default function PlayerControls({
   onTogglePlay,
   volume,
   onVolumeChange,
-  title = "Unknown Masterpiece",
+  title = "Waiting for music...",
   artist = "SYNÆSTHESIA",
 }: PlayerControlsProps) {
   const [isMuted, setIsMuted] = useState(false);
@@ -37,46 +37,65 @@ export default function PlayerControls({
   };
 
   return (
-    <div className="flex items-center gap-8 w-full max-w-4xl mx-auto">
+    <div className="flex items-center gap-4 md:gap-12 w-full max-w-6xl mx-auto">
       {/* Song Info */}
-      <div className="hidden md:flex flex-col flex-1 min-w-0">
-        <h3 className="text-text-primary text-sm font-medium truncate" dangerouslySetInnerHTML={{ __html: title }} />
-        <p className="text-text-secondary text-[10px] uppercase tracking-widest font-ui mt-1">{artist}</p>
+      <div className="hidden lg:flex flex-col flex-1 min-w-0">
+        <h3 
+          className="text-text-primary text-lg font-display tracking-tight truncate leading-tight" 
+          dangerouslySetInnerHTML={{ __html: title }} 
+        />
+        <p className="text-text-secondary text-[10px] uppercase tracking-[0.3em] font-ui mt-1.5 opacity-60">
+          {artist}
+        </p>
       </div>
 
       {/* Main Controls */}
-      <div className="flex items-center gap-6">
-        <button className="text-text-secondary hover:text-text-primary transition-colors">
-          <SkipBack className="w-5 h-5" />
+      <div className="flex items-center gap-8 md:gap-10">
+        <button className="text-text-secondary hover:text-white transition-colors duration-300">
+          <SkipBack className="w-5 h-5 fill-current" />
         </button>
         
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.05, shadow: "0 0 40px rgba(123,47,255,0.4)" }}
+          whileTap={{ scale: 0.95 }}
           onClick={onTogglePlay}
-          className="w-12 h-12 rounded-full bg-neon-violet flex items-center justify-center text-white shadow-[0_0_20px_rgba(123,47,255,0.4)] hover:shadow-[0_0_30px_rgba(123,47,255,0.6)] transition-all"
+          className="w-16 h-16 rounded-full bg-neon-violet flex items-center justify-center text-white shadow-[0_0_25px_rgba(123,47,255,0.3)] transition-all duration-500"
         >
-          {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
+          {isPlaying ? (
+            <Pause className="w-7 h-7 fill-current" />
+          ) : (
+            <Play className="w-7 h-7 fill-current ml-1" />
+          )}
         </motion.button>
 
-        <button className="text-text-secondary hover:text-text-primary transition-colors">
-          <SkipForward className="w-5 h-5" />
+        <button className="text-text-secondary hover:text-white transition-colors duration-300">
+          <SkipForward className="w-5 h-5 fill-current" />
         </button>
       </div>
 
       {/* Volume Control */}
-      <div className="flex items-center gap-3 flex-1 justify-end group">
-        <button onClick={toggleMute} className="text-text-secondary hover:text-text-primary transition-colors">
-          {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+      <div className="flex items-center gap-4 flex-1 justify-end group max-w-[200px]">
+        <button onClick={toggleMute} className="text-text-secondary hover:text-white transition-colors duration-300">
+          {isMuted || volume === 0 ? (
+            <VolumeX className="w-5 h-5" />
+          ) : (
+            <Volume2 className="w-5 h-5" />
+          )}
         </button>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={volume}
-          onChange={(e) => onVolumeChange(Number(e.target.value))}
-          className="w-24 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-neon-violet group-hover:w-32 transition-all"
-        />
+        <div className="relative flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div 
+            className="absolute inset-y-0 left-0 bg-neon-violet shadow-[0_0_10px_rgba(123,47,255,0.6)]" 
+            style={{ width: `${volume}%` }}
+          />
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={volume}
+            onChange={(e) => onVolumeChange(Number(e.target.value))}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </div>
       </div>
     </div>
   );

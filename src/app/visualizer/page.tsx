@@ -127,7 +127,7 @@ function VisualizerContent() {
           </div>
 
           {/* Player Glass Bar */}
-          <div className="glass-effect p-4 md:px-8 rounded-2xl shadow-3xl">
+          <div className="bg-void/30 backdrop-blur-2xl border border-border-glass p-6 md:px-12 rounded-[2rem] shadow-[0_0_50px_rgba(0,0,0,0.5)]">
             <PlayerControls 
               isPlaying={isPlaying}
               onTogglePlay={handleTogglePlay}
