@@ -19,7 +19,7 @@ function VisualizerContent() {
   const videoId = searchParams.get("v");
   const playerRef = useRef<any>(null);
 
-  const { audioData, startCapture, isActive: isAudioActive } = useAudioAnalyser();
+  const { getAudioData, connect: startCapture, isActive: isAudioActive } = useAudioAnalyser();
   const { activeMode, setMode } = useVisualizerMode();
   const [showPermission, setShowPermission] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -60,7 +60,7 @@ function VisualizerContent() {
       />
 
       {/* Main Visualizer Canvas */}
-      <VisualizerCanvas activeMode={activeMode} audioData={audioData} />
+      <VisualizerCanvas activeMode={activeMode} getAudioData={getAudioData} />
 
       {/* Top Bar UI */}
       <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-40">
@@ -74,7 +74,7 @@ function VisualizerContent() {
           <span className="font-display text-lg tracking-widest">SYNÆSTHESIA</span>
         </Link>
 
-        {!audioData.isActive && !showPermission && (
+        {!isAudioActive && !showPermission && (
           <button
             onClick={handleGrantPermission}
             className="flex items-center gap-2 px-4 py-2 rounded-full border border-neon-violet/30 text-xs font-ui uppercase tracking-widest text-text-primary hover:bg-neon-violet/10 transition-all"

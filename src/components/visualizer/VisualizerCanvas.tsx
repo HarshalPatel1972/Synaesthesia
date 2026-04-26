@@ -5,22 +5,20 @@ import { AudioData, VisualizerMode } from "@/types/visualizer";
 
 interface VisualizerCanvasProps {
   activeMode: VisualizerMode;
-  audioData: AudioData;
+  getAudioData: () => AudioData;
 }
 
-export default function VisualizerCanvas({ activeMode, audioData }: VisualizerCanvasProps) {
+export default function VisualizerCanvas({ activeMode, getAudioData }: VisualizerCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const handleResize = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: window.innerWidth,
-          height: window.innerHeight,
-        });
-      }
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
     };
 
     handleResize();
@@ -35,27 +33,25 @@ export default function VisualizerCanvas({ activeMode, audioData }: VisualizerCa
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
+    // Apply devicePixelRatio for sharpness
     const dpr = window.devicePixelRatio || 1;
     canvas.width = dimensions.width * dpr;
     canvas.height = dimensions.height * dpr;
     ctx.scale(dpr, dpr);
+    canvas.style.width = dimensions.width + "px";
+    canvas.style.height = dimensions.height + "px";
 
     let animationId: number;
     let frame = 0;
     const startTime = performance.now();
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const loop = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
+    const loop = () => {
+      const audio = getAudioData(); // CALLED EVERY FRAME
+      const time = performance.now() - startTime;
       
-      if (prefersReducedMotion && frame % 2 !== 0) {
-        // Skip frames or reduce intensity logic could go here
-      }
-      
-      // We don't clear the whole canvas every time to allow for trails in some modes
-      // The modes themselves handle background clearing if needed
-      
-      activeMode.render(ctx, dimensions.width, dimensions.height, audioData, elapsed, frame);
+      // Modes handle their own background clearing if they want trails
+      // but we ensure a baseline clear if needed
+      activeMode.render(ctx, dimensions.width, dimensions.height, audio, time, frame);
       
       frame++;
       animationId = requestAnimationFrame(loop);
@@ -63,14 +59,13 @@ export default function VisualizerCanvas({ activeMode, audioData }: VisualizerCa
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [activeMode, audioData, dimensions]);
+  }, [activeMode, getAudioData, dimensions]);
 
   return (
-    <div ref={containerRef} className="fixed inset-0 bg-void">
+    <div ref={containerRef} className="fixed inset-0 bg-[#000005]">
       <canvas
         ref={canvasRef}
-        className="w-full h-full block"
-        style={{ width: dimensions.width, height: dimensions.height }}
+        className="block"
       />
     </div>
   );
