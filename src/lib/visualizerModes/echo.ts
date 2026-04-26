@@ -1,76 +1,113 @@
-import { RenderFn } from "@/types/visualizer";
+import { AudioData, RenderFn } from "@/types/visualizer";
 
-interface Ripple {
-  x: number;
-  y: number;
+interface Ring {
   radius: number;
-  speed: number;
+  maxRadius: number;
   color: string;
-  opacity: number;
+  speed: number;
+  birth: number;
+  lineWidth: number;
 }
 
-let ripples: Ripple[] = [];
-const MAX_RIPPLES = 30;
+const rings: Ring[] = [];
+let lastBassTime = 0;
+const COLORS = ["#7B2FFF", "#00F5FF", "#FF2975", "#FF6B00", "#FFD700"];
+let colorIdx = 0;
 
-export const renderEcho: RenderFn = (ctx, width, height, audio, time, frame) => {
-  const { bass, mid, treble, amplitude } = audio;
-  
-  ctx.fillStyle = "rgba(0, 0, 5, 0.2)";
-  ctx.fillRect(0, 0, width, height);
+export const renderEcho: RenderFn = (
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  audio: AudioData,
+  time: number
+) => {
+  ctx.fillStyle = "rgba(0, 0, 5, 0.18)";
+  ctx.fillRect(0, 0, W, H);
 
-  const centerX = width / 2;
-  const centerY = height / 2;
+  const cx = W / 2;
+  const cy = H / 2;
 
-  // Emit new ripple on bass peak
-  if (bass > 0.7 && ripples.length < MAX_RIPPLES) {
-    const colors = ["#00F5FF", "#FF2975", "#FF6B00", "#7B2FFF"];
-    ripples.push({
-      x: centerX,
-      y: centerY,
+  // Emit new ring on bass spike (minimum 80ms between emissions)
+  const threshold = audio.isActive ? 0.55 : 0.45;
+  if (audio.bass > threshold && time - lastBassTime > 80) {
+    rings.push({
       radius: 0,
-      speed: 2 + bass * 10,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      opacity: 0.8,
+      maxRadius: Math.min(W, H) * (0.4 + audio.bass * 0.4),
+      color: COLORS[colorIdx % COLORS.length],
+      speed: 2 + audio.bass * 6,
+      birth: time,
+      lineWidth: 1 + audio.bass * 4,
     });
+    colorIdx++;
+    lastBassTime = time;
   }
 
-  // Treble micro-ripples
-  if (treble > 0.8 && frame % 10 === 0) {
-    ripples.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
+  // Always emit slow ambient rings in idle
+  if (!audio.isActive && time - lastBassTime > 1200) {
+    rings.push({
       radius: 0,
-      speed: 1 + treble * 5,
-      color: "#00F5FF",
-      opacity: 0.4,
+      maxRadius: Math.min(W, H) * 0.35,
+      color: COLORS[colorIdx % COLORS.length],
+      speed: 1.5,
+      birth: time,
+      lineWidth: 1,
     });
+    colorIdx++;
+    lastBassTime = time;
   }
 
-  // Update and draw ripples
-  ripples = ripples.filter((r) => r.opacity > 0.01);
-  ripples.forEach((r) => {
-    r.radius += r.speed;
-    r.opacity *= 0.98;
+  // Draw and age rings
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const ring = rings[i];
+    ring.radius += ring.speed;
 
+    const progress = ring.radius / ring.maxRadius;
+    const alpha = (1 - progress) * 0.8;
+
+    if (alpha <= 0 || ring.radius > ring.maxRadius) {
+      rings.splice(i, 1);
+      continue;
+    }
+
+    // Main ring
     ctx.beginPath();
-    ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-    ctx.strokeStyle = r.color + Math.floor(r.opacity * 255).toString(16).padStart(2, '0');
-    ctx.lineWidth = 1 + amplitude * 10;
+    ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = ring.color + Math.floor(alpha * 255).toString(16).padStart(2, "0");
+    ctx.lineWidth = ring.lineWidth * (1 - progress * 0.5);
     ctx.stroke();
-    
-    // Glowing ring
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = r.color;
-  });
 
-  // Central orb
+    // Glow duplicate
+    ctx.beginPath();
+    ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = ring.color + Math.floor(alpha * 100).toString(16).padStart(2, "0");
+    ctx.lineWidth = ring.lineWidth * 4 * (1 - progress);
+    ctx.stroke();
+  }
+
+  // Waveform circle in center
+  const waveRadius = 40 + audio.amplitude * 60;
+  const wavePoints = audio.waveformData.length;
   ctx.beginPath();
-  ctx.arc(centerX, centerY, 20 + amplitude * 40, 0, Math.PI * 2);
-  const orbGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 20 + amplitude * 40);
-  orbGrad.addColorStop(0, "#7B2FFF");
-  orbGrad.addColorStop(1, "rgba(123, 47, 255, 0)");
-  ctx.fillStyle = orbGrad;
+  for (let i = 0; i < wavePoints; i++) {
+    const angle = (i / wavePoints) * Math.PI * 2;
+    const v = (audio.waveformData[i] - 128) / 128;
+    const r = waveRadius + v * waveRadius * 0.8;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = `rgba(0, 245, 255, ${0.3 + audio.amplitude * 0.5})`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Center orb
+  const orb = ctx.createRadialGradient(cx, cy, 0, cx, cy, waveRadius * 0.6);
+  orb.addColorStop(0, `rgba(123, 47, 255, ${0.6 + audio.amplitude * 0.4})`);
+  orb.addColorStop(1, "rgba(123, 47, 255, 0)");
+  ctx.beginPath();
+  ctx.arc(cx, cy, waveRadius * 0.6, 0, Math.PI * 2);
+  ctx.fillStyle = orb;
   ctx.fill();
-  
-  ctx.shadowBlur = 0;
 };
