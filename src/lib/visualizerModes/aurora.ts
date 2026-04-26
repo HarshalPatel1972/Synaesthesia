@@ -1,39 +1,59 @@
-import { RenderFn } from "@/types/visualizer";
+import { AudioData, RenderFn } from "@/types/visualizer";
 
-export const renderAurora: RenderFn = (ctx, width, height, audio, time, frame) => {
-  const { bass, mid, treble, amplitude } = audio;
+export const renderAurora: RenderFn = (
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  audio: AudioData,
+  time: number
+) => {
+  // Semi-transparent overlay for trails
+  ctx.fillStyle = "rgba(0, 0, 5, 0.25)";
+  ctx.fillRect(0, 0, W, H);
 
-  // Background gradient shift
-  const bgGrad = ctx.createRadialGradient(width / 2, height, 0, width / 2, height, width);
-  bgGrad.addColorStop(0, `rgba(26, 5, 51, ${0.1 + mid * 0.2})`);
-  bgGrad.addColorStop(1, "#000005");
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, width, height);
+  const layers = [
+    { freq: 0.003, speed: 0.4, yBase: 0.85, color: [123, 47, 255], binStart: 0 },
+    { freq: 0.005, speed: 0.6, yBase: 0.75, color: [0, 245, 255], binStart: 20 },
+    { freq: 0.007, speed: 0.8, yBase: 0.65, color: [255, 41, 117], binStart: 50 },
+    { freq: 0.004, speed: 0.5, yBase: 0.55, color: [255, 107, 0], binStart: 80 },
+    { freq: 0.006, speed: 0.7, yBase: 0.45, color: [180, 0, 255], binStart: 120 },
+  ];
 
-  const layers = 6;
-  const colors = ["#7B2FFF", "#00F5FF", "#FF2975", "#7B2FFF", "#00F5FF", "#FFD700"];
+  layers.forEach((layer, idx) => {
+    // Amplitude driven by frequency bin at this layer's range
+    const binAmp = audio.frequencyData[layer.binStart] / 255;
+    const waveHeight = (0.05 + binAmp * 0.35) * H;
 
-  for (let i = 0; i < layers; i++) {
     ctx.beginPath();
-    ctx.moveTo(0, height);
+    ctx.moveTo(0, H);
 
-    const layerAmp = (i < 3 ? bass : treble) * 150 * (1 - i / layers);
-    const layerFreq = 0.001 + (i * 0.001);
-    const yOffset = height * 0.7 + (i * 20) - (amplitude * 100);
+    for (let x = 0; x <= W; x += 4) {
+      const t1 = time * 0.001 * layer.speed;
+      const t2 = time * 0.0007 * layer.speed;
+      // Multiple sine waves combined — this is what makes it organic
+      const y =
+        layer.yBase * H -
+        waveHeight * Math.sin(x * layer.freq + t1) -
+        waveHeight * 0.4 * Math.sin(x * layer.freq * 2.3 + t2) -
+        waveHeight * 0.2 * Math.sin(x * layer.freq * 0.7 - t1 * 0.5) -
+        audio.bass * 80 * Math.sin(x * 0.002 + t1 * 2); // bass = big push up
 
-    for (let x = 0; x <= width; x += 10) {
-      const y = Math.sin(x * layerFreq + time * 0.001 + i) * layerAmp + yOffset;
       ctx.lineTo(x, y);
     }
 
-    ctx.lineTo(width, height);
+    ctx.lineTo(W, H);
     ctx.closePath();
 
-    const opacity = 0.15 + (amplitude * 0.2);
-    ctx.fillStyle = colors[i % colors.length] + Math.floor(opacity * 255).toString(16).padStart(2, '0');
-    ctx.globalCompositeOperation = "screen";
+    const alpha = 0.12 + binAmp * 0.25;
+    const [r, g, b] = layer.color;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     ctx.fill();
-  }
-  
-  ctx.globalCompositeOperation = "source-over";
+
+    // Glow edge
+    const gradient = ctx.createLinearGradient(0, layer.yBase * H - waveHeight, 0, layer.yBase * H);
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 1.5})`);
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+  });
 };
